@@ -954,6 +954,11 @@ func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.
 		podSpec.Labels[key] = value
 	}
 
+	cpuRequestQuantity, _ := resource.ParseQuantity("100m")
+	memoryRequestQuantity, _ := resource.ParseQuantity("200Mi")
+	cpuLimitQuantity, _ := resource.ParseQuantity("200m")
+	memoryLimitQuantity, _ := resource.ParseQuantity("400Mi")
+
 	podSpec.Spec.ServiceAccountName = launcherName
 	podSpec.Spec.InitContainers = append(podSpec.Spec.InitContainers, corev1.Container{
 		Name:  kubectlDeliveryName,
@@ -970,6 +975,16 @@ func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.
 				MountPath: kubectlMountPath,
 			},
 		},
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceMemory: memoryRequestQuantity,
+				corev1.ResourceCPU: cpuRequestQuantity,
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU: cpuLimitQuantity,
+				corev1.ResourceMemory: memoryLimitQuantity,
+			},
+		},
 	})
 	container := podSpec.Spec.Containers[0]
 	container.Env = append(container.Env,
@@ -982,8 +997,15 @@ func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.
 			Value: fmt.Sprintf("%s/%s", configMountPath, hostfileName),
 		})
 	// Not assign any resource limits and requests to launcher pod
-	container.Resources.Limits = nil
-	container.Resources.Requests = nil
+	// Added by wangshi
+	container.Resources.Limits = corev1.ResourceList{
+		corev1.ResourceCPU: cpuLimitQuantity,
+		corev1.ResourceMemory: memoryLimitQuantity,
+	}
+	container.Resources.Requests = corev1.ResourceList{
+		corev1.ResourceCPU: cpuRequestQuantity,
+		corev1.ResourceMemory: memoryRequestQuantity,
+	}
 
 	// determine if run the launcher on the master node
 	if mpiJob.Spec.LauncherOnMaster {
